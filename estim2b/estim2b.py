@@ -36,7 +36,7 @@ class Estim:
     ser = serial
 
     # device e.g. /dev/ttyUSB0
-    def __init__(self, device, baudrate=9600, timeout=0):
+    def __init__(self, device, baudrate=9600, timeout=0, verbose=True):
         try:
             self.ser = serial.Serial(
                 device, 
@@ -55,6 +55,7 @@ class Estim:
             print "Opened serial device."
 
         self.commErr = True
+        self.verbose = verbose
 
         self.ping()
         self.printStatus()
@@ -76,7 +77,7 @@ class Estim:
                 self.Bout = int(replyArray[2])/2
                 self.Cout = int(replyArray[3])/2
                 self.Dout = int(replyArray[4])/2
-                self.mode = int(replyArray[5])/2
+                self.mode = int(replyArray[5])
                 self.power = str(replyArray[6])
                 self.joined = int(replyArray[7])
                 self.commErr = False
@@ -99,7 +100,8 @@ class Estim:
     
     def get(self):
         replyString = self.ser.readline()
-        print replyString
+        if self.verbose:
+            print replyString
         return replyString
     
     def send(self,sendstring):
@@ -132,27 +134,22 @@ class Estim:
         self.send("H")
     
     def linkChannels(self):
-        self.send("J")
+        self.send("J1")
     
     def unlinkChannels(self):
-        self.send("U")
+        self.send("J0")
     
-    def setDualOutput(self, level):
-        if level < 0 or level > 99:
-            print "Err: Invalid output level selected!"
-            return False
-        linkChannels()
-        self.send("A"+str(level))
-        unlinkchannels()
-        return True
-    
-    def setOutputs(self, levelA, levelB):
-        self.setOutput("A", levelA)
-        self.setOutput("B", levelB)
+    def setOutputs(self, levelA=None, levelB=None):
+        if levelA is not None:
+            self.setOutput("A", levelA)
+        if levelB is not None:
+            self.setOutput("B", levelB)
    
-    def setFeelings(self, levelC, levelD):
-        self.setOutput("C", levelC)
-        self.setOutput("D", levelD)
+    def setFeelings(self, levelC=None, levelD=None):
+        if levelC is not None:
+            self.setOutput("C", levelC)
+        if levelD is not None:
+            self.setOutput("D", levelD)
 
     def kill(self):
         self.send("K")
@@ -160,7 +157,7 @@ class Estim:
     def reset(self):
         self.send("E")
     
-    def setMode(self,modestring):
+    def setMode(self, modestring):
         modenum = self.modekey[modestring]
         if modenum < 0 or modenum > 13:
             print "Invalid mode"

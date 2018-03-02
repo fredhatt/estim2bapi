@@ -21,6 +21,7 @@ e2b.setMode('throb')
 jolt(e2b, 3, 3)
 e2b.status()
 
+e2b.setMode('bounce')
 e2b.setHigh()
 e2b.status()
 
