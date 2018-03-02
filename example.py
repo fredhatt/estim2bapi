@@ -11,6 +11,7 @@ def jolt(e2b, jpower=None, jtime=None):
 
 # for Linux, device addr on Windows and Mac will be different.
 e2b = estim2b.Estim('/dev/ttyUSB0')
+e2b.setLow()
 
 # quick status update, tests connection etc
 e2b.status()
@@ -18,7 +19,10 @@ e2b.status()
 # change the mode and send a 2.5 second jolt
 e2b.setMode('throb')
 jolt(e2b, 3, 3)
+e2b.status()
 
+e2b.setHigh()
+e2b.status()
 
 
 

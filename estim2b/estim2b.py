@@ -3,6 +3,7 @@
 
 import serial
 import time
+import sys
 
 
 class Estim:
@@ -35,9 +36,16 @@ class Estim:
     ser = serial
 
     # device e.g. /dev/ttyUSB0
-    def __init__(self, device):
+    def __init__(self, device, baudrate=9600, timeout=0):
         try:
-            self.ser = serial.Serial(device, 9600, serial.EIGHTBITS, serial.PARITY_NONE, serial.STOPBITS_ONE)
+            self.ser = serial.Serial(
+                device, 
+                baudrate,
+                timeout=timeout, 
+                bytesize=serial.EIGHTBITS, 
+                parity=serial.PARITY_NONE, 
+                stopbits=serial.STOPBITS_ONE)
+
         except Exception,e:
             print "Error opening serial device!"
             print e
@@ -46,36 +54,48 @@ class Estim:
         if(self.ser.isOpen()):
             print "Opened serial device."
 
-	self.ping()
-	self.printStatus()
+        self.commErr = True
+
+        self.ping()
+        self.printStatus()
 
     def status(self):
-        self.ping() # makes status update to date
-    	self.printStatus()
+        self.ping() # force update of status
+        self.printStatus()
 
+    def parseReply(self, replyString):
+        if not ":" in replyString: #check, if reply isn't empty
+                self.commErr = True
+                print 'Error communicating with E-stim 2B unit!'
+                print '  check connection and power.'
+        else:
+                self.commErr = False
+                replyArray = replyString.split(":")
+                self.battery = int(replyArray[0])
+                self.Aout = int(replyArray[1])/2
+                self.Bout = int(replyArray[2])/2
+                self.Cout = int(replyArray[3])/2
+                self.Dout = int(replyArray[4])/2
+                self.mode = int(replyArray[5])/2
+                self.power = str(replyArray[6])
+                self.joined = int(replyArray[7])
+                self.commErr = False
 
-    def parseReply(self,replyString):
-        replyArray = replyString.split(":")
-        self.battery = int(replyArray[0])
-        self.Aout = int(replyArray[1])/2
-        self.Bout = int(replyArray[2])/2
-        self.Cout = int(replyArray[3])/2
-        self.Dout = int(replyArray[4])/2
-        self.mode = int(replyArray[5])/2
-        self.power = str(replyArray[6])
-        self.joined = int(replyArray[7])
-    
+    def getStatus(self):
+        e2bstat = "----------------------------" + '\n' + \
+        "---  Battery : "+str(self.battery)+" ---" + '\n' + \
+        "---  A       : "+str(self.Aout)+" ---" + '\n' + \
+        "---  B       : "+str(self.Bout)+" ---" + '\n' + \
+        "---  C       : "+str(self.Cout)+" ---" + '\n' + \
+        "---  D       : "+str(self.Dout)+" ---" + '\n' + \
+        "---  mode    : "+str(self.mode)+" ---" + '\n' + \
+        "---  power   : "+str(self.power)+" ---" + '\n' + \
+        "---  joined  : "+str(self.joined)+" ---" + '\n' + \
+        "----------------------------"
+        return e2bstat
+
     def printStatus(self):
-        print "----------------------------"
-        print "---  Battery : "+str(self.battery)+" ---"
-        print "---  A       : "+str(self.Aout)+" ---"
-        print "---  B       : "+str(self.Bout)+" ---"
-        print "---  C       : "+str(self.Cout)+" ---"
-        print "---  D       : "+str(self.Dout)+" ---"
-        print "---  mode    : "+str(self.mode)+" ---"
-        print "---  power   : "+str(self.power)+" ---"
-        print "---  joined  : "+str(self.joined)+" ---"
-        print "----------------------------"
+        print self.getStatus()
     
     def get(self):
         replyString = self.ser.readline()
@@ -87,9 +107,12 @@ class Estim:
         time.sleep(0.1) # wait for reply
     
     def ping(self):
+        self.ser.flushInput()
         self.send("")
         replyString = self.get()
         self.parseReply(replyString)
+        if self.commErr:
+            sys.exit(1)
 
     # Sets the output level [0,99] of a channel.
     # serobj: the serial object to talk to
