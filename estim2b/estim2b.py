@@ -139,11 +139,17 @@ class Estim:
     def unlinkChannels(self):
         self.send("J0")
     
-    def setOutputs(self, levelA=None, levelB=None):
+    def setOutputs(self, levelA=None, levelB=None, kill_after=0):
+        '''Sets levelA and levelB is they are specified above. 
+           Optionally sets the outputs to 0 after kill_after seconds.'''
         if levelA is not None:
             self.setOutput("A", levelA)
         if levelB is not None:
             self.setOutput("B", levelB)
+
+         if kill_after > 0:
+             time.sleep(kill_after)
+             self.kill()
    
     def setFeelings(self, levelC=None, levelD=None):
         if levelC is not None:

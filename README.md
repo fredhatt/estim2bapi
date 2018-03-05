@@ -6,6 +6,19 @@ This is an (unofficial) Python API for the E-Stim 2B. Note that this is alpha so
 thus comes with absolutely no warranty whatsoever. Use at your own risk.
 
 # Installation
+
+## For users
+You can install using the pip command:
+
+    pip install git+https://github.com/fredhatt/estim2bapi.git
+
+If you don't have pip in your Python distribution you can install it using,
+
+    easy_install pip
+
+After installing, try the examples to check everything is working properly.
+
+## For developers
 Clone this repository and append its path to your PYTHONPATH variable. In Linux you would do this:
 
     git clone https://github.com/fredhatt/estim2bapi
