@@ -3,7 +3,7 @@ from setuptools import find_packages
 
 
 setup(name='estim2b',
-      version='0.1',
+      version='0.2',
       description='Unofficial Python API for E-stim 2B',
       author='Fred Hatt',
       author_email='fred.r.hatt@gmail.com',

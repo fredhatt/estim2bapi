@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#! env python
 
 
 import serial
@@ -147,7 +147,7 @@ class Estim:
         if levelB is not None:
             self.setOutput("B", levelB)
 
-         if kill_after > 0:
+        if kill_after > 0:
              time.sleep(kill_after)
              self.kill()
    
