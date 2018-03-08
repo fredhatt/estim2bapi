@@ -16,6 +16,10 @@ If you don't have pip in your Python distribution you can install it using,
 
     easy_install pip
 
+or (on Debian-based systems like Raspbian):
+
+    apt-get install python-pip
+
 After installing, try the examples to check everything is working properly.
 
 ## For developers
