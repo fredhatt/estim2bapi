@@ -18,11 +18,14 @@ class Jolt:
             return False
         return time.time() <= self._jolt_history[-1] + gtime
 
-    def __call__(self, jtime=3.5, jpower=3, gtime=1):
+    def __call__(self, mode='throb', jtime=3.5, jpower=3, gtime=1):
         # first we see if we're within the grace time
         if self.test_grace_period(gtime):
             if self._verbose: print 'No jolt: within grace period'
             return False
+
+        if mode is not None:
+            self._e2b.setMode(mode)
 
         if self._verbose: print 'Jolting.. ({} in last 60s)'.format(self.count_jolts(60))
         self._e2b.setOutputs(jpower, jpower, kill_after=jtime)
