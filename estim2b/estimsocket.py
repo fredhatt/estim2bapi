@@ -5,28 +5,45 @@ import time
 
 class EstimSocket:
 
-    def __init__(self, address="127.0.0.1", port=8089, verbose=True):
+    def __init__(self, address="127.0.0.1", port=8089, verbose=True, udp=False):
         self._address = address
         self._port = port
         self._verbose = verbose
+        self._udp = udp
 
-    def start_server(self, max_incoming=1, callbacks=[], on_close=None):
-        self.serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    def open_socket(self):
+        if self._udp:
+            self.serversocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        else:
+            self.serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
         self.serversocket.bind(('', self._port))
-        self.serversocket.listen(max_incoming) # become a server socket
-
-        if self._verbose:
-            print 'Server started... waiting for client to connect.'
-
-        conn, addr = self.serversocket.accept()
+        if not self._udp:
+            self.serversocket.listen(1) # become a server socket
         
-        if self._verbose:
+        if self._udp:
+            print 'UDP Server started... waiting for data.'
+            return None, None
+        else:
+            print 'TCP Server started... waiting for client to connect.'
+            conn, addr = self.serversocket.accept()
             print 'New client {} connected.'.format(addr[0])
             print 'Running loop.'
+            return conn, addr
+
+        
+
+    def start_server(self, max_incoming=1, callbacks=[], on_close=None):
+
+        # handles the TCP vs UDP socket
+        conn, addr = self.open_socket()
 
         while True:
 
-            buf = conn.recv(1024)
+            if self._udp:
+                buf, addr = self.serversocket.recvfrom(1024)
+            else:
+                buf = conn.recv(1024)
 
             if len(buf) > 0:
 
