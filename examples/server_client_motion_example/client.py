@@ -31,7 +31,7 @@ def get_axes():
     We send 4 pieces of information, the current time (which can be used to work out the lag)
     and the x, y, z readings from the accelerometer
     '''
-    x = "{}:{}:{}:{}".format(time.time(), axes['x'], axes['y'], axes['z'])
+    x = "{},{},{},{}".format(time.time(), axes['x'], axes['y'], axes['z'])
     return x
 
 

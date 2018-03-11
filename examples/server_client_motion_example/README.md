@@ -14,7 +14,7 @@ same network as the client. The server receives a stream of data from the client
 processes this to figure out if the angle of the accelerometer has changed, or if
 there has been general movement. All the processing is done on the server, this makes 
 it really easy to implement new clients (in fact your could use your mobile phone if 
-you wrote an app to send TCP packets containing `"time:x:y:z"` to the server!
+you wrote an app to send TCP packets containing `"time,x,y,z"` to the server!
 
 # Usage
 

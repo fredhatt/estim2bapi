@@ -56,14 +56,16 @@ hist = History()
 def callback_history(buf, address):
 
     try:
-        dat = buf.split(':')
-        t = float(dat[0])
-        x = float(dat[1])
-        y = float(dat[2])
-        z = float(dat[3])
+        dat = buf.split(',')
+        t = float(dat[0].strip())
+        x = float(dat[1].strip())
+        y = float(dat[2].strip())
+        z = float(dat[3].strip())
         valid = True
     except:
-        sys.stderr.write('received malformed buffer: {}'.format(buf))
+        e = sys.exc_info()
+        sys.stderr.write('received malformed buffer: {}\n'.format(buf))
+        sys.stderr.write(str(e))
         valid = False
     
     if not valid: return False

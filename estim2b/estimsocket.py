@@ -33,7 +33,7 @@ class EstimSocket:
 
         
 
-    def start_server(self, max_incoming=1, callbacks=[], on_close=None):
+    def start_server(self, max_incoming=1, callbacks=[], on_close=None, drop_packets=False):
 
         # handles the TCP vs UDP socket
         conn, addr = self.open_socket()
@@ -41,22 +41,35 @@ class EstimSocket:
         while True:
 
             if self._udp:
-                buf, addr = self.serversocket.recvfrom(1024)
+                buf, addr = self.serversocket.recvfrom(4096)
             else:
-                buf = conn.recv(1024)
+                buf = conn.recv(4096)
 
             if len(buf) > 0:
 
                 if self._verbose: 
                     print 'Received {} from {}.'.format(buf, addr[0])
 
-                for i, callback in enumerate(callbacks):
-                    # callbacks must accept two arguments: the buffer
-                    # that was sent, and the address of the device that
-                    # sent it.
-                    if self._verbose:
-                        print '  callback {} of {}...'.format(i, len(callbacks))
-                    callback(buf, addr[0])
+                # at this point we've recv'd a buffer (buf) that contains data
+                # it may contain multiple lines of data, if our server is processing
+                # slower than the send rate of the client. To account for this we 
+                # split our buffer into lines, and run the callbacks sequentially
+                # on those
+                buf = str.splitlines(buf)
+                if drop_packets:
+                    # only use the very last packet that was sent (faster)
+                    buf = buf[-1]
+
+                for i, this_buf in enumerate(buf):
+                    # run all callbacks on each line in sequence
+
+                    for j, callback in enumerate(callbacks):
+                        # callbacks must accept two arguments: the buffer
+                        # that was sent, and the address of the device that
+                        # sent it.
+                        if self._verbose:
+                            print '  callback {} of {}...'.format(j, len(callbacks))
+                        callback(this_buf, addr[0])
 
             else: # len(buf) <= 0
                 print 'Client disconnected, will perform clean exit.'
