@@ -5,6 +5,82 @@ import serial
 import time
 import sys
 
+'''
+TODO: 
+* add __call__ printing method to EstimStatus so that we 
+  can just call print e2b.status
+* add a general set method to Estim, so that we can have
+  e2b.set(A=10, B=10, C=10, D=10), then the setOutputs 
+  and setFeelings will be shortcuts to set.
+* add an enforce_consistency=boolean option to Estim, after
+  sending a command get the status from the 2B and check it
+  matches what EstimStatus thinks the status should be.
+'''
+
+class EstimStatus:
+
+    status = {'battery': None, 'A': None, 'B': None, 'C': None, 'D': None,
+              'mode': None, 'power': None, 'joined': None}
+
+    def set(self, battery, A, B, C, D, mode, power, joined):
+        stat = locals()
+        stat.pop('self', None)
+        self.status = stat 
+
+    def _set_kw(self, **kwargs):
+        for k, v in kwargs.iteritems():
+            self.status[k] = v
+
+    def check(self, battery, A, B, C, D, mode, power, joined):
+        ndiff = 0
+        for k, v in locals():
+            if v == self.status[k]:
+                ndiff += 1
+        return ndiff
+
+    def _format_status(self):
+        e2bstat = "==============================\n"
+        for k, v in self.status.iteritems():
+            space = " "
+            for i in range(8 - len(k)):  k += space
+            e2bstat += "  {}: {}\n".format(k, v)
+        e2bstat += "=============================="
+        return e2bstat
+
+    def get(self, formatted=False):
+        if formatted:
+            return self._format_status()
+        else:
+            return self.status
+
+    def update(self, command):
+        if len(command) == 0: return True
+        if command[0] == 'A':
+            self._set_kw(A = int(command[1:])*2)
+            return True
+        if command[0] == 'B':
+            self._set_kw(B = int(command[1:])*2)
+            return True
+        if command[0] == 'C':
+            self._set_kw(C = int(command[1:])*2)
+            return True
+        if command[0] == 'D':
+            self._set_kw(D = int(command[1:])*2)
+            return True
+        if command[0] == 'J':
+            self._set_kw(joined=command[1:])
+            return True
+        if command[0] == 'M':
+            self._set_kw(mode=command[1:])
+            return True
+        if command[0] == 'H' or command[0] == 'L':
+            self._set_kw(power=command[0])
+            return True
+        return False # unrecognised command
+        
+    
+
+
 
 class Estim:
     modekey = {
@@ -24,38 +100,32 @@ class Estim:
     "training":13
     }
     
-    battery = -1
-    Aout = -1
-    Bout = -1
-    Cout = -1
-    Dout = -1
-    mode = -1
-    power = "err"
-    joined = -1
-
     ser = serial
 
     # device e.g. /dev/ttyUSB0
-    def __init__(self, device, baudrate=9600, timeout=0, verbose=True):
-        try:
-            self.ser = serial.Serial(
-                device, 
-                baudrate,
-                timeout=timeout, 
-                bytesize=serial.EIGHTBITS, 
-                parity=serial.PARITY_NONE, 
-                stopbits=serial.STOPBITS_ONE)
+    def __init__(self, device, baudrate=9600, timeout=0, verbose=True, dryrun=False):
+        if not dryrun:
+            try:
+                self.ser = serial.Serial(
+                    device, 
+                    baudrate,
+                    timeout=timeout, 
+                    bytesize=serial.EIGHTBITS, 
+                    parity=serial.PARITY_NONE, 
+                    stopbits=serial.STOPBITS_ONE)
 
-        except Exception,e:
-            print "Error opening serial device!"
-            print e
-            exit(1)
+            except Exception,e:
+                print "Error opening serial device!"
+                print e
+                exit(1)
 
-        if(self.ser.isOpen()):
-            print "Opened serial device."
+            if(self.ser.isOpen()):
+                print "Opened serial device."
 
+        self.status = EstimStatus()
         self.commErr = True
         self.verbose = verbose
+        self.dryrun = dryrun
 
         self.ping()
         self.printStatus()
@@ -71,47 +141,37 @@ class Estim:
                 print '  check connection and power.'
         else:
                 self.commErr = False
-                replyArray = replyString.split(":")
-                self.battery = int(replyArray[0])
-                self.Aout = int(replyArray[1])/2
-                self.Bout = int(replyArray[2])/2
-                self.Cout = int(replyArray[3])/2
-                self.Dout = int(replyArray[4])/2
-                self.mode = int(replyArray[5])
-                self.power = str(replyArray[6])
-                self.joined = int(replyArray[7])
-                self.commErr = False
+                r = replyString.split(":")
+                self.status.set(int(r[0]), int(r[1])/2, int(r[2])/2, int(r[3])/2, int(r[4])/2,
+                                int(r[5]), str(r[6]), int(r[7]))
 
     def getStatus(self):
-        e2bstat = "----------------------------" + '\n' + \
-        "---  Battery : "+str(self.battery)+" ---" + '\n' + \
-        "---  A       : "+str(self.Aout)+" ---" + '\n' + \
-        "---  B       : "+str(self.Bout)+" ---" + '\n' + \
-        "---  C       : "+str(self.Cout)+" ---" + '\n' + \
-        "---  D       : "+str(self.Dout)+" ---" + '\n' + \
-        "---  mode    : "+str(self.mode)+" ---" + '\n' + \
-        "---  power   : "+str(self.power)+" ---" + '\n' + \
-        "---  joined  : "+str(self.joined)+" ---" + '\n' + \
-        "----------------------------"
-        return e2bstat
+        return self.status.get(formatted=True)
 
     def printStatus(self):
         print self.getStatus()
     
-    def get(self):
-        replyString = self.ser.readline()
+    def getReply(self):
+        if self.dryrun:
+            replyString = "512:66:00:50:50:1:L:0:0"
+        else:
+            replyString = self.ser.readline()
         if self.verbose:
             print replyString
         return replyString
     
-    def send(self,sendstring):
-        self.ser.write(sendstring+"\n\r")
-        time.sleep(0.1) # wait for reply
+    def send(self, sendstring):
+        self.status.update(sendstring)
+        if self.dryrun:
+            print "send: {}".format(sendstring)
+        else:
+            self.ser.write(sendstring+"\n\r")
+        #time.sleep(0.1) # shouldn't necessary now
     
     def ping(self):
-        self.ser.flushInput()
+        if not self.dryrun: self.ser.flushInput()
         self.send("")
-        replyString = self.get()
+        replyString = self.getReply()
         self.parseReply(replyString)
         if self.commErr:
             sys.exit(1)
