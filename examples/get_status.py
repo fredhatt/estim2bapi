@@ -3,10 +3,10 @@ import time
 
 
 # for Linux, device addr on Windows and Mac will be different.
-e2b = estim2b.Estim('/dev/ttyUSB0')
+e2b = estim2b.Estim()
 
 # quick status update, tests connection etc
-#e2b.status()
+print e2b.status()
 
 
 
