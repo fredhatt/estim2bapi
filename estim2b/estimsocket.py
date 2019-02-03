@@ -22,13 +22,13 @@ class EstimSocket:
             self.serversocket.listen(1) # become a server socket
         
         if self._udp:
-            print 'UDP Server started... waiting for data.'
+            print('UDP Server started ({}:{})... waiting for data.'.format(self._address, self._port))
             return None, None
         else:
-            print 'TCP Server started... waiting for client to connect.'
+            print('TCP Server started ({}:{})... waiting for client to connect.'.format(self._address, self._port))
             conn, addr = self.serversocket.accept()
-            print 'New client {} connected.'.format(addr[0])
-            print 'Running loop.'
+            print('New client {} connected.'.format(addr[0]))
+            print('Running loop.')
             return conn, addr
 
         
@@ -48,14 +48,17 @@ class EstimSocket:
             if len(buf) > 0:
 
                 if self._verbose: 
-                    print 'Received {} from {}.'.format(buf, addr[0])
+                    print('Received {} from {}.'.format(buf, addr[0]))
 
                 # at this point we've recv'd a buffer (buf) that contains data
                 # it may contain multiple lines of data, if our server is processing
                 # slower than the send rate of the client. To account for this we 
                 # split our buffer into lines, and run the callbacks sequentially
                 # on those
-                buf = str.splitlines(buf)
+                #print(type(buf))
+                #print(buf.decode('utf-8'))
+                #print(str.splitlines(buf.decode('utf-8')))
+                buf = [buf.decode('utf-8')]
                 if drop_packets:
                     # only use the very last packet that was sent (faster)
                     buf = buf[-1]
@@ -68,13 +71,13 @@ class EstimSocket:
                         # that was sent, and the address of the device that
                         # sent it.
                         if self._verbose:
-                            print '  callback {} of {}...'.format(j, len(callbacks))
+                            print('  callback {} of {}...'.format(j, len(callbacks)))
                         callback(this_buf, addr[0])
 
             else: # len(buf) <= 0
-                print 'Client disconnected, will perform clean exit.'
+                print('Client disconnected, will perform clean exit.')
                 if on_close is not None:
-                    print 'running cleanup...'
+                    print('running cleanup...')
                     on_close()
                 break
 
@@ -84,7 +87,7 @@ class EstimSocket:
 
     def client_send(self, buf):
         if self._verbose:
-            print 'Sending {} to {}'.format(buf, self._address)
+            print('Sending {} to {}'.format(buf, self._address))
         self.clientsocket.send(buf)
 
 

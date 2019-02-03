@@ -31,21 +31,23 @@ parser.add_option('--jolt-time', help='Duration of the jolt',
 parser.add_option('--jolt-power', help='Power of the jolt',
                   dest='jpower', default=3, type=int)
 
+parser.add_option('--device', help='COM device of Estim 2B hardware',
+                  dest='device', default='auto', type=str)
 
 opts, args = parser.parse_args()
 
 if opts.angstd is not None and not opts.angtol == 1.0:
-    print
-    print '--angle-std has been set but --angle-tol is not 1'
-    print 'Note that angle-std will be multiplied by angle-tol.'
-    print '(when overiding angle-std like this it is usually best to set angle-tol to 1)'
-    print
+    print()
+    print('--angle-std has been set but --angle-tol is not 1')
+    print('Note that angle-std will be multiplied by angle-tol.')
+    print('(when overiding angle-std like this it is usually best to set angle-tol to 1)')
+    print()
 
-print 'Read command-line arguments:'
-print opts
-print
+print('Read command-line arguments:')
+print(opts)
+print()
 
-e2b = Estim('/dev/ttyUSB0')
+e2b = Estim(opts.device)
 
 jolt = Jolt(e2b, verbose=True)
 
@@ -76,14 +78,14 @@ def callback_velocity(buf, address):
     
     if hist.counter == hist.max_length:
         vel_means, vel_stds = hist.calibrate_velocities(opts.motionstd)
-        print 'Calibrated'
-        print '  mean movement:', vel_means
-        print '  stdd movement:', vel_stds
-        print
+        print('Calibrated')
+        print('  mean movement:', vel_means)
+        print('  stdd movement:', vel_stds)
+        print()
 
     if hist.counter >= hist.max_length:
         if hist.test_velocity_trigger(opts.motiontol):
-            print 'moved at step {}'.format(hist.counter)
+            print('moved at step {}'.format(hist.counter))
             jolt(jtime=opts.jtime, jpower=opts.jpower, gtime=opts.gtime)
 
     return True
@@ -95,14 +97,14 @@ def callback_level(buf, address):
     
     if hist.counter == hist.max_length:
         angle_means, angle_stds = hist.calibrate_angles(opts.angstd) 
-        print 'Calibrated'
-        print '  mean angles:', angle_means
-        print '  stdd angles:', angle_stds
-        print
+        print('Calibrated')
+        print('  mean angles:', angle_means)
+        print('  stdd angles:', angle_stds)
+        print()
 
     if hist.counter >= hist.max_length:
         if hist.test_angle_trigger(opts.angtol):
-            print 'Unlevel at {}'.format(hist.counter)
+            print('Unlevel at {}'.format(hist.counter))
             jolt(jtime=opts.jtime, jpower=opts.jpower, gtime=opts.gtime)
 
     return True
