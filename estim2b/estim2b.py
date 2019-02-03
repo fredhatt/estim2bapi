@@ -1,12 +1,17 @@
 #! env python
 
+
 import serial
 import time
 import sys
-import platform
 
 '''
 TODO: 
+* add __call__ printing method to EstimStatus so that we 
+  can just call print e2b.status
+* add a general set method to Estim, so that we can have
+  e2b.set(A=10, B=10, C=10, D=10), then the setOutputs 
+  and setFeelings will be shortcuts to set.
 * add an enforce_consistency=boolean option to Estim, after
   sending a command get the status from the 2B and check it
   matches what EstimStatus thinks the status should be.
@@ -16,28 +21,6 @@ class EstimStatus:
 
     status = {'battery': None, 'A': None, 'B': None, 'C': None, 'D': None,
               'mode': None, 'power': None, 'joined': None}
-                
-    keys = ['battery', 'A', 'B', 'C', 'D', 'mode', 'power', 'joined']
-
-    def parseReply(self, replyString):
-        print(replyString)
-        print(replyString.decode())
-        if not ":" in replyString: #check, if reply isn't empty
-                print('Error communicating with E-stim 2B unit!')
-                print('  check connection and power.')
-                return False
-        else:
-                r = replyString.split(":")
-                status_dict = {}
-                for i, key in enumerate(self.keys):
-                    if i == 6:
-                        status_dict[key] = str(r[i])
-                    else:
-                        status_dict[key] = int(r[i])
-                return status_dict
-
-                #self.status.set(int(r[0]), int(r[1])/2, int(r[2])/2, int(r[3])/2, int(r[4])/2,
-                #                int(r[5]), str(r[6]), int(r[7]))
 
     def set(self, battery, A, B, C, D, mode, power, joined):
         stat = locals()
@@ -45,33 +28,26 @@ class EstimStatus:
         self.status = stat 
 
     def _set_kw(self, **kwargs):
-        for k, v in kwargs.items():
+        for k, v in kwargs.iteritems():
             self.status[k] = v
 
-    def check(self, battery=None, A=None, B=None, C=None, D=None, mode=None, power=None, joined=None):
+    def check(self, battery, A, B, C, D, mode, power, joined):
         ndiff = 0
         for k, v in locals():
-            if v is None: continue
             if v == self.status[k]:
                 ndiff += 1
         return ndiff
 
-    def _getstr(self):
-        return "{}:{}:{}:{}:{}:{}:{}:00".format(self.status['battery'], self.status['A'], self.status['B'],
-            self.status['C'], self.status['D'], self.status['mode'], self.status['power'], self.status['joined'])
-
     def _format_status(self):
         e2bstat = "==============================\n"
-        for k, v in self.status.items():
+        for k, v in self.status.iteritems():
             space = " "
             for i in range(8 - len(k)):  k += space
             e2bstat += "  {}: {}\n".format(k, v)
         e2bstat += "=============================="
         return e2bstat
 
-    def __call__(self, formatted=False, string=False):
-        if string:
-            return self._getstr()
+    def get(self, formatted=False):
         if formatted:
             return self._format_status()
         else:
@@ -101,7 +77,7 @@ class EstimStatus:
             self._set_kw(power=command[0])
             return True
         return False # unrecognised command
-
+        
     
 
 
@@ -127,10 +103,7 @@ class Estim:
     ser = serial
 
     # device e.g. /dev/ttyUSB0
-    def __init__(self, device='auto', baudrate=9600, timeout=0, verbose=True, dryrun=False, check_command=False, delay=0.05):
-        if device == 'auto':
-            if platform.system() == 'Darwin': device = '/dev/tty.usbserial-FTGD2KUC'
-            if platform.system() == 'Linux': device = '/dev/ttyUSB0'
+    def __init__(self, device, baudrate=9600, timeout=0, verbose=True, dryrun=False):
         if not dryrun:
             try:
                 self.ser = serial.Serial(
@@ -141,74 +114,76 @@ class Estim:
                     parity=serial.PARITY_NONE, 
                     stopbits=serial.STOPBITS_ONE)
 
-            except Exception as e:
-                print("Error opening serial device!")
-                raise(e)
+            except Exception,e:
+                print "Error opening serial device!"
+                print e
+                exit(1)
 
             if(self.ser.isOpen()):
-                print("Opened serial device.")
-        else:
-            print('Running in dryrun mode.')
+                print "Opened serial device."
 
         self.status = EstimStatus()
-        self.commErr = False
+        self.commErr = True
         self.verbose = verbose
         self.dryrun = dryrun
-        self.check_command = check_command
-        self.delay = delay
 
-        #self.printStatus()
+        self.ping()
+        self.printStatus()
 
-    def getStatus(self, formatted=True, check=None):
-        ''' Gets the status from the 2B '''
-        if not self.dryrun: self.ser.flushInput()
-        self.send("")
-        replyString = self.recv()
-        status_dict = self.status.parseReply(replyString)
-        if self.verbose:
-            print(replyString)
-        if self.commErr or not status_dict:
-            print('comm error', self.commErr, status_dict)
-            sys.exit(1)
-        return status_dict
+    def status(self):
+        self.ping() # force update of status
+        self.printStatus()
 
-    def recv(self):
-        time.sleep(self.delay)
+    def parseReply(self, replyString):
+        if not ":" in replyString: #check, if reply isn't empty
+                self.commErr = True
+                print 'Error communicating with E-stim 2B unit!'
+                print '  check connection and power.'
+        else:
+                self.commErr = False
+                r = replyString.split(":")
+                self.status.set(int(r[0]), int(r[1])/2, int(r[2])/2, int(r[3])/2, int(r[4])/2,
+                                int(r[5]), str(r[6]), int(r[7]))
+
+    def getStatus(self):
+        return self.status.get(formatted=True)
+
+    def printStatus(self):
+        print self.getStatus()
+    
+    def getReply(self):
         if self.dryrun:
             replyString = "512:66:00:50:50:1:L:0:0"
         else:
             replyString = self.ser.readline()
         if self.verbose:
-            print(replyString)
+            print replyString
         return replyString
     
     def send(self, sendstring):
         self.status.update(sendstring)
-        if self.verbose:
-            print("send: {}".format(sendstring),)
         if self.dryrun:
-            print
+            print "send: {}".format(sendstring)
         else:
-            command = sendstring+"\n\r"
-            self.ser.write(command.encode())
-            print('(send complete).')
-        time.sleep(self.delay)
-            
+            self.ser.write(sendstring+"\n\r")
+        #time.sleep(0.1) # shouldn't necessary now
+    
+    def ping(self):
+        if not self.dryrun: self.ser.flushInput()
+        self.send("")
+        replyString = self.getReply()
+        self.parseReply(replyString)
+        if self.commErr:
+            sys.exit(1)
 
-    # Sets the output level [0, 99] of a channel.
+    # Sets the output level [0,99] of a channel.
     # serobj: the serial object to talk to
     # channel: one of A,B,C,D
     # level: the value between 0-99 to set.
     def setOutput(self, channel, level):
-        print('setOutput: {} ({}): {} ({})'.format(channel, level, type(channel), type(level)))
-        if channel in ['A', 'B']:
-            if level < 0 or level > 100:
-                print("Err: Invalid output level selected! A (or B) must be in range 0 to 100.")
-                return False
-        if channel in ['C', 'D']:
-            if level < 2 or level > 100:
-                print("Err: Invalid output level selected! C (or D) must be in range 2 to 100.")
-                return False
+        if level < 0 or level > 99:
+            print "Err: Invalid output level selected!"
+            return False
         self.send(channel+str(level))
         return True
     
@@ -223,28 +198,24 @@ class Estim:
     
     def unlinkChannels(self):
         self.send("J0")
-
-    def set(self, A=None, B=None, C=None, D=None):
-        if A is not None:
-            self.setOutput("A", A)
-        if B is not None:
-            self.setOutput("B", B)
-        if C is not None:
-            self.setOutput("C", C)
-        if D is not None:
-            self.setOutput("D", D)
     
-    def setOutputs(self, A=None, B=None, kill_after=0):
+    def setOutputs(self, levelA=None, levelB=None, kill_after=0):
         '''Sets levelA and levelB is they are specified above. 
            Optionally sets the outputs to 0 after kill_after seconds.'''
-        self.set(A=A, B=B)
+        if levelA is not None:
+            self.setOutput("A", levelA)
+        if levelB is not None:
+            self.setOutput("B", levelB)
 
         if kill_after > 0:
              time.sleep(kill_after)
              self.kill()
    
-    def setFeelings(self, C=None, D=None):
-        self.set(C=C, D=D)
+    def setFeelings(self, levelC=None, levelD=None):
+        if levelC is not None:
+            self.setOutput("C", levelC)
+        if levelD is not None:
+            self.setOutput("D", levelD)
 
     def kill(self):
         self.send("K")
@@ -255,7 +226,7 @@ class Estim:
     def setMode(self, modestring):
         modenum = self.modekey[modestring]
         if modenum < 0 or modenum > 13:
-            print("Invalid mode")
+            print "Invalid mode"
             return False
         self.send("M"+str(modenum))
         return True
