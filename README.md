@@ -2,8 +2,19 @@
 [![License](https://img.shields.io/badge/license-MIT%20License-brightgreen.svg)](https://opensource.org/licenses/MIT)
 
 # About estim2bapi
-This is an (unofficial) Python API for the E-Stim 2B. Note that this is alpha software, and 
-thus comes with absolutely no warranty whatsoever. Use at your own risk.
+This is an (unofficial) API for the E-Stim 2B, written for Python 3.6+. 
+
+## Features
+* Threaded design: Estim class doesn't block the main thread, making it simple to write complicated code involving multiple sensors.
+* Supports simultaneous control of multiple 2Bs!
+* Autodetects the correct COM port.
+* estim2b.play module for command routines (currently "jolt" and "ramp").
+* Informative warning/error messages (using Estim(..., verbose=2))
+
+## To-do
+* Create a PyPi package for easier installation.
+* More examples.
+* More applications.
 
 # Installation
 
@@ -30,10 +41,34 @@ Clone this repository and append its path to your PYTHONPATH variable. In Linux 
     source ~/.bashrc
 
 # Usage
-    # import the module and connect to 2B connected to ttyUSB0 (Linux)...
     import estim2b
-    e2b = estim2b.Estim('/dev/ttyUSB0')
-    # get status from 2B...
-    e2b.status()
+    e2b = estim2b.Estim()
+    # start processing commands  
+    e2b.start()
+    # set channel at to 50, wait for 5 seconds and set back to 0 again.   
+    e2b.set_output("A", 50)
+    e2b.wait(5)
+    e2b.set_output("A", 0, block=True)
+    
+    
+## Using multiple 2Bs
+    import estim2b
+    e2b_dev = []
+    e2b_dev += [estim2b.Estim(device=/dev/ttyUSB0)]
+    e2b_dev += [estim2b.Estim(device=/dev/ttyUSB1)]
+    for e2b in e2b_dev:
+        e2b.start()
+        
+    for e2b in e2b_dev:
+        e2b.set_mode("milk)
+        e2b.set_output("A", 20)
+        e2b.set_output("B", 20)
+        e2b.wait(10)
+        e2b.wait(10)
+        e2b.kill()
+        
+    for e2b in e2b_dev:
+        e2b.stop() # stop threads before closing
 
-For a simple usage example see example.py.
+For a more advanced (and useful) example see 
+[applications/random_walk/random_walk.py](applications/random_walk/random_walk.py).

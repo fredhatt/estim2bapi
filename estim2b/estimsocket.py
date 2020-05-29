@@ -1,14 +1,22 @@
 #! env python
-
+import logging
 import socket
 import time
 
 class EstimSocket:
 
-    def __init__(self, address="127.0.0.1", port=8089, verbose=True, udp=False):
+    def __init__(self, address="127.0.0.1", port=8089, verbose=1, udp=False):
         self._address = address
         self._port = port
-        self._verbose = verbose
+        level = logging.INFO
+        if verbose <= 0 or verbose == "quiet":
+            level = logging.ERROR
+        elif verbose == 1 or verbose == "info":
+            level = logging.INFO
+        elif verbose >= 2 or verbose == "debug":
+            level = logging.DEBUG
+        logging.basicConfig(
+            level=level, format='%(asctime)s | %(threadName)s: [%(module)s:%(funcName)s] %(levelname)s: %(message)s')
         self._udp = udp
 
     def open_socket(self):
@@ -22,16 +30,14 @@ class EstimSocket:
             self.serversocket.listen(1) # become a server socket
         
         if self._udp:
-            print('UDP Server started ({}:{})... waiting for data.'.format(self._address, self._port))
+            logging.info(f"UDP Server started ({self._address}:{self._port})... waiting for data.")
             return None, None
         else:
-            print('TCP Server started ({}:{})... waiting for client to connect.'.format(self._address, self._port))
+            logging.info(f"TCP Server started ({self._address}:{self._port})... waiting for client to connect.")
             conn, addr = self.serversocket.accept()
-            print('New client {} connected.'.format(addr[0]))
-            print('Running loop.')
+            logging.info(f"New client {addr[0]} connected.")
+            logging.info("Running loop.")
             return conn, addr
-
-        
 
     def start_server(self, max_incoming=1, callbacks=[], on_close=None, drop_packets=False):
 
@@ -47,8 +53,7 @@ class EstimSocket:
 
             if len(buf) > 0:
 
-                if self._verbose: 
-                    print('Received {} from {}.'.format(buf, addr[0]))
+                logging.debug(f"Received {buf} from {addr[0]}.")
 
                 # at this point we've recv'd a buffer (buf) that contains data
                 # it may contain multiple lines of data, if our server is processing
@@ -70,14 +75,13 @@ class EstimSocket:
                         # callbacks must accept two arguments: the buffer
                         # that was sent, and the address of the device that
                         # sent it.
-                        if self._verbose:
-                            print('  callback {} of {}...'.format(j, len(callbacks)))
+                        logging.debug(f"callback {j} of {len(callbacks)}...")
                         callback(this_buf, addr[0])
 
             else: # len(buf) <= 0
-                print('Client disconnected, will perform clean exit.')
+                logging.info("Client disconnected, will perform clean exit.")
                 if on_close is not None:
-                    print('running cleanup...')
+                    logging.info("running cleanup...")
                     on_close()
                 break
 
@@ -86,13 +90,17 @@ class EstimSocket:
         self.clientsocket.connect( (self._address, self._port) )
 
     def client_send(self, buf):
-        if self._verbose:
-            print('Sending {} to {}'.format(buf, self._address))
+        logging.debug(f"Sending {buf} to {self._address}")
         self.clientsocket.send(buf)
 
 
 if __name__ == "__main__":
 
-    server = EstimSocket()
-    server.start_server()
+    import sys
+
+    def echo_callback(buf, addr):
+        print(f"Received {buf} from {addr}")
+
+    server = EstimSocket(port=int(sys.argv[1]))
+    server.start_server(callbacks=[echo_callback])
 
